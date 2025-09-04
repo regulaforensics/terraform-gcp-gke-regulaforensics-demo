@@ -1,6 +1,6 @@
 # GCP GKE Regula Forensics Demo
 
-This repository contains Terraform and Terragrunt configurations for deploying Regula Forensics applications (DocReader and FaceAPI) on Google Kubernetes Engine (GKE) in Google Cloud Platform.
+This repository provides two deployment approaches for Regula Forensics applications (DocReader and FaceAPI) on Google Kubernetes Engine (GKE): a **Terraform module** for simple deployments and a **Terragrunt configuration** for production-grade infrastructure management.
 
 ## Architecture Overview
 
@@ -14,7 +14,7 @@ The infrastructure deploys:
 ## Project Structure
 
 ```
-├── terraform/                 # Terraform modules
+├── terraform/                 # Terraform module (simple deployment)
 │   ├── module/                # Core infrastructure module
 │   │   ├── 0-project.tf      # Project configuration
 │   │   ├── 1-vpc.tf          # VPC and networking
@@ -23,24 +23,26 @@ The infrastructure deploys:
 │   │   ├── 4-helm.tf         # Helm deployments
 │   │   └── 5-gke_auth.tf     # GKE authentication
 │   └── main.tf               # Root module
-└── terragrunt/               # Terragrunt configurations
-    ├── gcp/
-    │   └── gcp-regula-dev/
-    │       ├── infra/        # Infrastructure components
-    │       │   ├── apis/     # GCP APIs
-    │       │   ├── gke/      # GKE configurations
-    │       │   ├── vpc/      # VPC configurations
-    │       │   └── gsql/     # Cloud SQL
-    │       └── apps/         # Application deployments
-    │           ├── docreader/
-    │           └── faceapi/
-    └── *.hcl                 # Terragrunt configuration files
+└── terragrunt/               # Terragrunt configuration (production-grade)
+    ├── project.hcl           # Central configuration
+    ├── root-gcp.hcl         # Remote state configuration
+    ├── provider-*.hcl       # Provider configurations
+    ├── regula.license       # License file
+    └── gcp/gcp-regula-dev/
+        ├── infra/           # Infrastructure components
+        │   ├── vpc/         # VPC, NAT, PSA
+        │   ├── gke/         # GKE cluster and IAM
+        │   ├── gsql/        # Cloud SQL
+        │   └── gcs/         # Storage buckets
+        └── apps/            # Application deployments
+            ├── docreader/
+            └── faceapi/
 ```
 
 ## Prerequisites
 
 - [Terraform](https://www.terraform.io/downloads.html) >= 1.0
-- [Terragrunt](https://terragrunt.gruntwork.io/docs/getting-started/install/) >= 0.45
+- [Terragrunt](https://terragrunt.gruntwork.io/docs/getting-started/install/) >= 0.45 (for Terragrunt approach)
 - [Google Cloud SDK](https://cloud.google.com/sdk/docs/install)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
 - [Helm](https://helm.sh/docs/intro/install/) >= 3.0
@@ -58,81 +60,181 @@ gcloud auth application-default login
 gcloud config set project YOUR_PROJECT_ID
 ```
 
-### 2. Configure Project Settings
+### 2. Enable Required APIs
+
+```bash
+# Enable required Google Cloud APIs
+gcloud services enable compute.googleapis.com
+gcloud services enable container.googleapis.com
+gcloud services enable sqladmin.googleapis.com
+gcloud services enable storage.googleapis.com
+gcloud services enable iam.googleapis.com
+gcloud services enable cloudresourcemanager.googleapis.com
+gcloud services enable servicenetworking.googleapis.com
+gcloud services enable monitoring.googleapis.com
+gcloud services enable logging.googleapis.com
+```
+
+### 3. License Configuration
+
+Place your Regula license file:
+- **Terraform**: In your project directory as `regula.license`
+- **Terragrunt**: At `terragrunt/regula.license`
+
+---
+
+# Deployment Options
+
+## Option 1: Terraform Module (Simple Deployment)
+
+**Best for**: Quick deployments, testing, simple environments
+
+### Setup
+
+1. **Create credentials file**:
+   ```bash
+   # Create and download service account key
+   export GOOGLE_APPLICATION_CREDENTIALS="/path/to/credentials.json"
+   ```
+
+2. **Create main.tf**:
+   ```hcl
+   module "gke_cluster" {
+     source            = "./terraform"
+     project_id        = "your-project-id"
+     region            = "europe-west3"
+     zones             = ["europe-west3-a", "europe-west3-b"]
+     name              = "regula-dev"
+     enable_docreader  = true
+     enable_faceapi    = true
+     docreader_license = filebase64("regula.license")
+     face_api_license  = filebase64("regula.license")
+   }
+   
+   # Generate kubeconfig
+   resource "local_file" "kubeconfig" {
+     content  = module.gke_cluster.config
+     filename = "kubeconfig"
+   }
+   ```
+
+3. **Deploy**:
+   ```bash
+   terraform init
+   terraform plan
+   terraform apply
+   ```
+
+### Custom Helm Values (Optional)
+
+```hcl
+# Custom DocReader values
+data "template_file" "docreader_values" {
+  template = file("values/docreader/values.yml")
+}
+
+# Custom FaceAPI values
+data "template_file" "faceapi_values" {
+  template = file("values/faceapi/values.yml")
+}
+
+module "gke_cluster" {
+  # ... other variables
+  docreader_values = data.template_file.docreader_values.rendered
+  faceapi_values   = data.template_file.faceapi_values.rendered
+}
+```
+
+---
+
+## Option 2: Terragrunt (Production-Grade)
+
+**Best for**: Production environments, complex deployments, team collaboration
+
+### Configuration
 
 Edit `terragrunt/project.hcl`:
 
 ```hcl
 locals {
-  gcp_project_number = YOUR_PROJECT_NUMBER
-  gcp_project        = "YOUR_PROJECT_ID"
+  # Core project settings
+  gcp_project        = "your-project-id"
   gcp_region         = "europe-west3"
-  gcp_zones          = [
-    "europe-west3-a",
-    "europe-west3-b",
-    "europe-west3-c"
-  ]
+  gcp_zones          = ["europe-west3-a", "europe-west3-b", "europe-west3-c"]
   project_name       = "regula"
   project_env        = "dev"
+  
+  # App configurations
+  apps = {
+    docreader = { name = "docreader", namespace = "docreader", deploy = true }
+    faceapi   = { name = "faceapi", namespace = "faceapi", deploy = true }
+  }
+  
+  # Resource sizing
+  compute = {
+    cpu_nodepool = "n4-standard-2"
+    gpu_nodepool = "g2-standard-4"
+    db_size      = "db-custom-1-3840"
+  }
 }
 ```
 
-### 3. License Configuration
+### Deployment Methods
 
-Place your Regula license file at `terragrunt/regula.license`
+#### Full Deployment (One Command)
+```bash
+cd terragrunt/gcp/gcp-regula-dev
+terragrunt apply --all
+```
 
-## Deployment Options
-
-### Option 1: Using Terragrunt (Recommended)
-
-Deploy infrastructure components:
-
+#### Step-by-Step Deployment
 ```bash
 cd terragrunt/gcp/gcp-regula-dev
 
-# Deploy VPC
-terragrunt run-all apply --terragrunt-include-dir infra/vpc
+# 1. Deploy VPC infrastructure
+terragrunt apply --all --terragrunt-include-dir infra/vpc
 
-# Deploy GKE cluster
-terragrunt run-all apply --terragrunt-include-dir infra/gke
+# 2. Deploy GKE cluster
+terragrunt apply --all --terragrunt-include-dir infra/gke
 
-# Deploy applications
-terragrunt run-all apply --terragrunt-include-dir apps
+# 3. Deploy database
+terragrunt apply --terragrunt-working-dir infra/gsql
+
+# 4. Deploy storage buckets
+terragrunt apply --all --terragrunt-include-dir infra/gcs
+
+# 5. Deploy applications
+terragrunt apply --all --terragrunt-include-dir apps
 ```
 
-### Option 2: Using Terraform
-
+#### Individual Components
 ```bash
-cd terraform
-
-# Initialize
-terraform init
-
-# Plan deployment
-terraform plan -var="project_id=YOUR_PROJECT_ID" \
-               -var="region=europe-west3" \
-               -var="name=regula-dev" \
-               -var="zones=[\"europe-west3-a\",\"europe-west3-b\"]"
-
-# Apply
-terraform apply
+# Deploy specific component
+terragrunt apply --terragrunt-working-dir infra/vpc/vpc
+terragrunt apply --terragrunt-working-dir infra/gke/gke-cluster
+terragrunt apply --terragrunt-working-dir apps/docreader
 ```
 
-## Configuration
+---
 
-### Key Variables
+# Configuration Reference
+
+## Key Variables (Terraform)
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `project_id` | GCP Project ID | - |
-| `region` | GCP Region | `europe-west3` |
-| `name` | Cluster name | `regula-dev` |
+| `region` | GCP Region | - |
+| `zones` | Deployment zones | - |
+| `name` | Cluster name | - |
 | `machine_type` | Node machine type | `e2-standard-4` |
-| `node_count` | Number of nodes | `2` |
+| `node_count` | Number of nodes | `1` |
 | `enable_docreader` | Deploy DocReader | `false` |
 | `enable_faceapi` | Deploy FaceAPI | `false` |
+| `docreader_license` | DocReader license (base64) | - |
+| `face_api_license` | FaceAPI license (base64) | - |
 
-### Network Configuration
+## Network Configuration
 
 - **VPC CIDR**: Custom VPC with private subnets
 - **Pod Range**: `10.48.0.0/14`
@@ -140,42 +242,26 @@ terraform apply
 - **Private Nodes**: Enabled by default
 - **NAT Gateway**: For outbound internet access
 
-### GKE Configuration
+## GKE Configuration
 
 - **Node Pools**: 
-  - CPU pool: `n4-standard-2` instances
-  - GPU pool: `g2-standard-4` with NVIDIA L4 GPUs (conditional)
-- **Autoscaling**: Enabled (1-10 nodes for CPU, 1-3 for GPU)
-- **Monitoring**: Google Cloud Monitoring enabled
+  - CPU pool: `n4-standard-2` instances (1-10 nodes)
+  - GPU pool: `g2-standard-4` with NVIDIA L4 GPUs (1-3 nodes, conditional)
+- **Monitoring**: Google Cloud Monitoring and Prometheus
 - **Logging**: Comprehensive logging enabled
+- **Security**: Private cluster, Workload Identity, Network Policies
 
-## Application Deployment
+---
 
-### DocReader
-
-```bash
-# Enable DocReader deployment
-terragrunt apply --terragrunt-include-dir apps/docreader
-```
-
-### FaceAPI
-
-```bash
-# Enable FaceAPI deployment (requires GPU nodes)
-terragrunt apply --terragrunt-include-dir apps/faceapi
-```
+# Operations
 
 ## Accessing Applications
 
-### Get Cluster Credentials
-
 ```bash
+# Get cluster credentials
 gcloud container clusters get-credentials regula-dev --region europe-west3
-```
 
-### Check Deployments
-
-```bash
+# Check deployments
 kubectl get pods -n docreader
 kubectl get pods -n faceapi
 kubectl get services -n docreader
@@ -184,65 +270,55 @@ kubectl get services -n faceapi
 
 ## Monitoring and Logging
 
-- **Google Cloud Monitoring**: Enabled for cluster metrics
-- **Google Cloud Logging**: Comprehensive logging for all components
-- **Prometheus**: Managed Prometheus for advanced monitoring
-
-## Security Features
-
-- **Private GKE Cluster**: Nodes have no external IPs
-- **Network Policies**: Kubernetes network policies enabled
-- **Workload Identity**: Secure pod-to-GCP service authentication
-- **Private Google Access**: Enabled for accessing Google APIs
+- **Google Cloud Monitoring**: Cluster and application metrics
+- **Google Cloud Logging**: Centralized logging
+- **Prometheus**: Advanced monitoring (Terragrunt only)
 
 ## Cleanup
 
-### Terragrunt
-
+### Terraform
 ```bash
-# Destroy applications first
-terragrunt run-all destroy --terragrunt-include-dir apps
-
-# Destroy infrastructure
-terragrunt run-all destroy --terragrunt-include-dir infra
+terraform destroy
 ```
 
-### Terraform
-
+### Terragrunt
 ```bash
-cd terraform
-terraform destroy
+# Destroy applications first
+terragrunt destroy --all --terragrunt-include-dir apps
+
+# Destroy infrastructure
+terragrunt destroy --all --terragrunt-include-dir infra
 ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Insufficient Quotas**: Ensure your GCP project has sufficient quotas for:
-   - Compute Engine instances
-   - GPUs (if using FaceAPI)
-   - Load balancers
-
-2. **Network Connectivity**: Verify NAT gateway is properly configured for private nodes
-
-3. **License Issues**: Ensure `regula.license` file is present and valid
+1. **Authentication errors**: Run `gcloud auth application-default login`
+2. **API not enabled**: Enable required APIs listed above
+3. **Insufficient quotas**: Check GCP quotas for compute, GPU, load balancers
+4. **License issues**: Ensure license file is present and valid
+5. **Network connectivity**: Verify NAT gateway configuration
 
 ### Useful Commands
 
 ```bash
-# Check cluster status
+# Terraform
+terraform plan
+terraform apply
+terraform destroy
+
+# Terragrunt
+terragrunt plan --all
+terragrunt apply --all
+terragrunt destroy --all
+terragrunt graph-dependencies
+
+# Kubernetes
 kubectl cluster-info
-
-# View node status
 kubectl get nodes -o wide
-
-# Check resource usage
 kubectl top nodes
-kubectl top pods --all-namespaces
-
-# View logs
 kubectl logs -n docreader deployment/docreader
-kubectl logs -n faceapi deployment/faceapi
 ```
 
 ## Support
