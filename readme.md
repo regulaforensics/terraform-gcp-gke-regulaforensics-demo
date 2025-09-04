@@ -1,145 +1,257 @@
-# This module is intended to create a GCP GKE cluster and for further deployment of Regula Forensics Helm charts 
+# GCP GKE Regula Forensics Demo
+
+This repository contains Terraform and Terragrunt configurations for deploying Regula Forensics applications (DocReader and FaceAPI) on Google Kubernetes Engine (GKE) in Google Cloud Platform.
+
+## Architecture Overview
+
+The infrastructure deploys:
+- **GKE Cluster**: Private Kubernetes cluster with CPU and GPU node pools
+- **VPC Network**: Custom VPC with private subnets and NAT gateway
+- **Cloud SQL**: PostgreSQL database for application data
+- **Cloud Storage**: GCS buckets for application storage
+- **Helm Applications**: DocReader and FaceAPI services
+
+## Project Structure
+
+```
+├── terraform/                 # Terraform modules
+│   ├── module/                # Core infrastructure module
+│   │   ├── 0-project.tf      # Project configuration
+│   │   ├── 1-vpc.tf          # VPC and networking
+│   │   ├── 2-gke_cluster.tf  # GKE cluster
+│   │   ├── 3-router_nat.tf   # NAT gateway
+│   │   ├── 4-helm.tf         # Helm deployments
+│   │   └── 5-gke_auth.tf     # GKE authentication
+│   └── main.tf               # Root module
+└── terragrunt/               # Terragrunt configurations
+    ├── gcp/
+    │   └── gcp-regula-dev/
+    │       ├── infra/        # Infrastructure components
+    │       │   ├── apis/     # GCP APIs
+    │       │   ├── gke/      # GKE configurations
+    │       │   ├── vpc/      # VPC configurations
+    │       │   └── gsql/     # Cloud SQL
+    │       └── apps/         # Application deployments
+    │           ├── docreader/
+    │           └── faceapi/
+    └── *.hcl                 # Terragrunt configuration files
+```
 
 ## Prerequisites
 
-**GCP**
-- Create a GCP project.
-- Create a service account (https://cloud.google.com/iam/docs/service-accounts-create).
-- Create and download the service account key file **credentials.json** for using Google API (https://cloud.google.com/iam/docs/keys-create-delete).
-- Place the credentials in the folder with your module.
+- [Terraform](https://www.terraform.io/downloads.html) >= 1.0
+- [Terragrunt](https://terragrunt.gruntwork.io/docs/getting-started/install/) >= 0.45
+- [Google Cloud SDK](https://cloud.google.com/sdk/docs/install)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
+- [Helm](https://helm.sh/docs/intro/install/) >= 3.0
 
-## Preparation Steps
+## Setup
 
-### Export AWS credentials
+### 1. Authentication
 
 ```bash
-  export GOOGLE_APPLICATION_CREDENTIALS="/host/path/credentials.json"
+# Authenticate with Google Cloud
+gcloud auth login
+gcloud auth application-default login
+
+# Set your project
+gcloud config set project YOUR_PROJECT_ID
 ```
 
-### Enable Cloud Resource Manager 
+### 2. Configure Project Settings
 
-- Add your **project_id** to the following Url and enable cloud resource manager API: https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=<PROJECT_ID>. 
-
-
-### Create a terraform main.tf file and pass the required variables **project_id**, **region**, **zones**, and **name**
+Edit `terragrunt/project.hcl`:
 
 ```hcl
-module "gke_cluster" {
-  source            = "github.com/regulaforensics/terraform-gcp-regulaforensics-demo"
-  project_id        = var.project_id
-  region            = var.region
-  zones             = var.zones
-  name              = var.name
-  enable_docreader  = true
-  enable_faceapi    = true
-}
-```
-
-### To access your cluster, add the following resource
-
-```hcl
-resource "local_file" "kubeconfig" {
-  content  = module.gke_cluster.config
-  filename = "${path.module}/kubeconfig"
-
-  depends_on = [
-    module.gke_cluster
+locals {
+  gcp_project_number = YOUR_PROJECT_NUMBER
+  gcp_project        = "YOUR_PROJECT_ID"
+  gcp_region         = "europe-west3"
+  gcp_zones          = [
+    "europe-west3-a",
+    "europe-west3-b",
+    "europe-west3-c"
   ]
+  project_name       = "regula"
+  project_env        = "dev"
 }
 ```
 
-This will create a kubernetes config file to access your cluster.
+### 3. License Configuration
 
-## Add the Regula license for your chart
+Place your Regula license file at `terragrunt/regula.license`
 
-```hcl
-data "template_file" "docreader_license" {
-  template = filebase64("${path.module}/license/docreader/regula.license")
-}
-```
-```hcl
-data "template_file" "face_api_license" {
-  template = filebase64("${path.module}/license/faceapi/regula.license")
-}
-```
-```hcl
-module "gke_cluster" {
-  ...
-  docreader_license  = data.template_file.docreader_license.rendered
-  face_api_license   = data.template_file.face_api_license.rendered
-  ...
-}
-```
-## Execute the Terraform template
+## Deployment Options
+
+### Option 1: Using Terragrunt (Recommended)
+
+Deploy infrastructure components:
 
 ```bash
-  terraform init
-  terraform plan
-  terraform apply
+cd terragrunt/gcp/gcp-regula-dev
+
+# Deploy VPC
+terragrunt run-all apply --terragrunt-include-dir infra/vpc
+
+# Deploy GKE cluster
+terragrunt run-all apply --terragrunt-include-dir infra/gke
+
+# Deploy applications
+terragrunt run-all apply --terragrunt-include-dir apps
 ```
 
-## Optional: Custom Helm values
+### Option 2: Using Terraform
 
-### Custom values for docreader chart
+```bash
+cd terraform
 
-If you are deploying the docreader Helm chart with custom values:
+# Initialize
+terraform init
 
-- Create a **values.yml** file in a folder named after the application (for example, values/docreader/values.yml).
-- Pass the file location to the `template_file` of `data source` block:
-```hcl
-data "template_file" "docreader_values" {
-  template = file("${path.module}/values/docreader/values.yml")
-}
+# Plan deployment
+terraform plan -var="project_id=YOUR_PROJECT_ID" \
+               -var="region=europe-west3" \
+               -var="name=regula-dev" \
+               -var="zones=[\"europe-west3-a\",\"europe-west3-b\"]"
+
+# Apply
+terraform apply
 ```
 
-### Custom values for the faceapi chart
+## Configuration
 
-If you are deploying the faceapi Helm chart with custom values:
+### Key Variables
 
-- Create a **values.yml** file in a folder named after the application (for example, values/faceapi/values.yml).
-- Pass the file location to the `template_file` of `data source` block:
-```hcl
-data "template_file" "faceapi_values" {
-  template = file("${path.module}/values/faceapi/values.yml")
-}
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `project_id` | GCP Project ID | - |
+| `region` | GCP Region | `europe-west3` |
+| `name` | Cluster name | `regula-dev` |
+| `machine_type` | Node machine type | `e2-standard-4` |
+| `node_count` | Number of nodes | `2` |
+| `enable_docreader` | Deploy DocReader | `false` |
+| `enable_faceapi` | Deploy FaceAPI | `false` |
+
+### Network Configuration
+
+- **VPC CIDR**: Custom VPC with private subnets
+- **Pod Range**: `10.48.0.0/14`
+- **Service Range**: `10.52.0.0/20`
+- **Private Nodes**: Enabled by default
+- **NAT Gateway**: For outbound internet access
+
+### GKE Configuration
+
+- **Node Pools**: 
+  - CPU pool: `n4-standard-2` instances
+  - GPU pool: `g2-standard-4` with NVIDIA L4 GPUs (conditional)
+- **Autoscaling**: Enabled (1-10 nodes for CPU, 1-3 for GPU)
+- **Monitoring**: Google Cloud Monitoring enabled
+- **Logging**: Comprehensive logging enabled
+
+## Application Deployment
+
+### DocReader
+
+```bash
+# Enable DocReader deployment
+terragrunt apply --terragrunt-include-dir apps/docreader
 ```
 
-Finally, pass the rendered template files to the `docreader_values/faceapi_values` variables:
+### FaceAPI
 
-```
-module "gke_cluster" {
-  source           = "github.com/regulaforensics/terraform-gcp-regulaforensics-demo"
-  enable_docreader = true
-  enable_faceapi   = true
-  docreader_values = data.template_file.docreader_values.rendered
-  faceapi_values   = data.template_file.faceapi_values.rendered
-  ...
-}
+```bash
+# Enable FaceAPI deployment (requires GPU nodes)
+terragrunt apply --terragrunt-include-dir apps/faceapi
 ```
 
-## **Inputs**
+## Accessing Applications
 
-| Name                          | Description                                                                           | Type          |Default                                |
-| ------------------------------|---------------------------------------------------------------------------------------|---------------|---------------------------------------|
-| project_id                    | The region in which to host the cluster (optional if zonal cluster / required if regional) | string        | null                                  |
-| region                        | AWS Region                                                                            | string        | null                                  |
-| regional                      | Whether it is a regional cluster (zonal cluster if set to false)                         | bool          | false                                 |
-| zones                         | Zones to deploy the cluster                                                             | string        | null                                  |
-| name                          | The name of your cluster                                                                  | list(string)  | null                                  |
-| master_authorized_networks    | List of master authorized networks                                                    |list(map(string)) | [{cidr_block="0.0.0.0/0",display_name="Open for all"}]|
-| enable_private_endpoint       | Whether the master's internal IP address is used as the cluster endpoint              | bool          | false                                 |
-| enable_private_nodes          | Whether nodes have internal IP addresses only                                         | bool          | true                                  |
-| subnet_private_access         | When enabled, VMs in this subnetwork are without external IP addresses                    | bool          | true                                  |
-| subnet_ip_range               | The range of IP addresses belonging to this subnetwork secondary range                | string        | 10.1.0.0/28                           |
-| secondary_ip_ranges           |An array of configurations for secondary IP ranges for VM instances contained in this subnetwork | list(map(string))   | [{range_name="k8s-pod-range" ip_cidr_range = "10.48.0.0/14"},{range_name="k8s-service-range" ip_cidr_range = "10.52.0.0/20"}]   |
-| node_count                    | The number of nodes in the node pool when autoscaling is false                         | string        | 1                                     |
-| disk_size_gb                  | Size of the disk attached to each node, specified in GB                               | string        | 100                                   |
-| disk_type                     | Type of the disk attached to each node                                                | string        | pd-standard                           |
-| machine_type                  | The name of a Google Compute Engine machine type                                      | string        | e2-standard-4                         |
-| spot                          | Whether the underlying node VMs are spot                    | bool          | true                                  |
-| enable_docreader              | Deploy Docreader Helm chart                                                           | bool          | false                                 |
-| docreader_values              | Docreader Helm values                                                                 | string        | null                                  |
-| docreader_license             | Docreader Regula license file                                                         | string        | null                                  |
-| enable_faceapi                | Deploy Faceapi Helm chart                                                             | bool          | false                                 |
-| faceapi_values                | Faceapi Helm values                                                                   | string        | null                                  |
-| face_api_license              | Faceapi Regula license file                                                           | string        | null                                  |
+### Get Cluster Credentials
+
+```bash
+gcloud container clusters get-credentials regula-dev --region europe-west3
+```
+
+### Check Deployments
+
+```bash
+kubectl get pods -n docreader
+kubectl get pods -n faceapi
+kubectl get services -n docreader
+kubectl get services -n faceapi
+```
+
+## Monitoring and Logging
+
+- **Google Cloud Monitoring**: Enabled for cluster metrics
+- **Google Cloud Logging**: Comprehensive logging for all components
+- **Prometheus**: Managed Prometheus for advanced monitoring
+
+## Security Features
+
+- **Private GKE Cluster**: Nodes have no external IPs
+- **Network Policies**: Kubernetes network policies enabled
+- **Workload Identity**: Secure pod-to-GCP service authentication
+- **Private Google Access**: Enabled for accessing Google APIs
+
+## Cleanup
+
+### Terragrunt
+
+```bash
+# Destroy applications first
+terragrunt run-all destroy --terragrunt-include-dir apps
+
+# Destroy infrastructure
+terragrunt run-all destroy --terragrunt-include-dir infra
+```
+
+### Terraform
+
+```bash
+cd terraform
+terraform destroy
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Insufficient Quotas**: Ensure your GCP project has sufficient quotas for:
+   - Compute Engine instances
+   - GPUs (if using FaceAPI)
+   - Load balancers
+
+2. **Network Connectivity**: Verify NAT gateway is properly configured for private nodes
+
+3. **License Issues**: Ensure `regula.license` file is present and valid
+
+### Useful Commands
+
+```bash
+# Check cluster status
+kubectl cluster-info
+
+# View node status
+kubectl get nodes -o wide
+
+# Check resource usage
+kubectl top nodes
+kubectl top pods --all-namespaces
+
+# View logs
+kubectl logs -n docreader deployment/docreader
+kubectl logs -n faceapi deployment/faceapi
+```
+
+## Support
+
+For issues related to:
+- **Infrastructure**: Check Terraform/Terragrunt logs
+- **Applications**: Check Kubernetes pod logs
+- **Regula Licenses**: Contact Regula support
+
+## License
+
+This project is licensed under the terms specified in your Regula Forensics license agreement.
