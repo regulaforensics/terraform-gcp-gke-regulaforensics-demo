@@ -1,14 +1,14 @@
 locals {
   # Core project settings
-  gcp_project_number = 767054176137
-  gcp_project        = "gcp-regula-dev"
+  gcp_project_number = ""
+  gcp_project        = ""
   gcp_region         = "europe-west3"
   gcp_zones          = [
     "europe-west3-a",
     "europe-west3-b",
     "europe-west3-c"
   ]
-  project_name       = "regula"
+  project_name       = ""
   project_env        = "dev"
   
   # App configurations
