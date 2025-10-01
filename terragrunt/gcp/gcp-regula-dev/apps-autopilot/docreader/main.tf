@@ -104,7 +104,7 @@ resource "helm_release" "docreader" {
 
   atomic     = true
   replace    = true
-  version    = "2.2.5"
+  version    = "2.2.6"
 
   values = [
     yamlencode({
