@@ -48,7 +48,7 @@ terragrunt/                   # Terragrunt configuration
 
 ## Prerequisites
 
-- [Terraform](https://www.terraform.io/downloads.html) >= 1.13
+- [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.13
 - [Terragrunt](https://terragrunt.gruntwork.io/docs/getting-started/install/) >= 0.8
 - [Google Cloud SDK](https://cloud.google.com/sdk/docs/install)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
