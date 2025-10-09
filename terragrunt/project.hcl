@@ -1,14 +1,14 @@
 locals {
   # Core project settings
-  gcp_project_number = ""
-  gcp_project        = ""
+  gcp_project_number = "" #GCP Project Number
+  gcp_project        = "" #GCP Project Name
   gcp_region         = "europe-west3"
   gcp_zones          = [
     "europe-west3-a",
     "europe-west3-b",
     "europe-west3-c"
   ]
-  project_name       = ""
+  project_name       = "" #Project name
   project_env        = "dev"
   
   # App configurations
@@ -38,6 +38,6 @@ locals {
     db_size      = "db-custom-1-3840"
   }
   
-  domain            = "regula.app"
+  domain            = "" #Your Domain Prefix
   license_file_path = "regula.license"
 }

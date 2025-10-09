@@ -109,6 +109,12 @@ locals {
     }
   }
   
+  # Available Helm chart versions: https://github.com/regulaforensics/helm-charts/releases
+  
+  {
+    # Infrastructure settings
+  }
+  
   # Infrastructure settings
   gke_cluster_name = "${local.project_name}-${local.project_env}"
   gke_cluster_type = "standard" # "standard" or "autopilot"
