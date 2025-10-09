@@ -49,6 +49,12 @@ variable "domain" {
   type        = string
 }
 
+variable "chart_version" {
+  description = "Helm chart version for docreader"
+  type        = string
+  default     = "2.3.0"
+}
+
 resource "kubernetes_namespace" "docreader" {
   metadata {
     name = var.app_namespace
@@ -104,8 +110,7 @@ resource "helm_release" "docreader" {
   namespace  = kubernetes_namespace.docreader.metadata[0].name
 
   atomic     = true
-  replace    = true
-  version    = "2.2.5"
+  version    = var.chart_version
 
   values = [
     yamlencode({

@@ -16,12 +16,14 @@ locals {
     docreader = {
       name      = "docreader"
       namespace = "docreader"
+      chart_version = "2.3.0"
       deploy    = true
     }
     faceapi = {
       name      = "faceapi" 
       namespace = "faceapi"
       deploy    = true
+      chart_version = "2.2.0"
     }
   }
   

@@ -51,6 +51,12 @@ variable "domain" {
   type        = string
 }
 
+variable "chart_version" {
+  description = "Helm chart version for faceapi"
+  type        = string
+  default     = "2.2.0"
+}
+
 resource "kubernetes_namespace" "faceapi" {
   metadata {
     name = var.app_namespace
@@ -132,6 +138,7 @@ resource "helm_release" "faceapi" {
   chart      = "faceapi"
   namespace  = kubernetes_namespace.faceapi.metadata[0].name
   atomic     = false
+  version    = var.chart_version
 
   values = [
 

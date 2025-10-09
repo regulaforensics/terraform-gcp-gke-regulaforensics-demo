@@ -13,8 +13,9 @@ include "provider" {
 dependency "gke" {
   config_path = local.project.gke_cluster_type == "autopilot" ? "../../infra/gke/gke-autopilot" : "../../infra/gke/gke-cluster"
   mock_outputs = {
-    cluster_name     = "mock-cluster"
-    cluster_location = "us-central1"
+    name     = "mock-cluster"
+    cluster_name = "mock-cluster"
+    location = "us-central1"
   }
 }
 
@@ -59,4 +60,5 @@ inputs = {
   domain                     = "gcp-${local.app_name}-${local.project.project_env}.${local.project.domain}"
   service_account_name       = "${local.app_name}-${local.project.project_env}"
   license_file_path          = "${get_parent_terragrunt_dir("root")}/regula.license"
+  chart_version              = local.project.apps.docreader.chart_version
 }
