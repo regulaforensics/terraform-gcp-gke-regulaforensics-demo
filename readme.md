@@ -71,6 +71,8 @@ gcloud config set project YOUR_PROJECT_ID
 
 Place your Regula license file at `terragrunt/regula.license`
 
+For trial licenses, visit: https://docs.regulaforensics.com/develop/doc-reader-sdk/overview/licensing/#trial-license
+
 ---
 
 # Deployment
