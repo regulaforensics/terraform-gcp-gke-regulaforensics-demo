@@ -99,13 +99,13 @@ locals {
       name      = "docreader"
       namespace = "docreader"
       deploy    = true
-      chart_version = "1.0.0"  # DocReader Helm chart version
+      chart_version = "2.3.0"  # DocReader Helm chart version
     }
     faceapi = {
       name      = "faceapi" 
       namespace = "faceapi"
       deploy    = true
-      chart_version = "1.0.0"  # FaceAPI Helm chart version
+      chart_version = "2.2.0"  # FaceAPI Helm chart version
     }
   }
   
@@ -130,6 +130,36 @@ locals {
   license_file_path = "regula.license"
 }
 ```
+
+## Configuration Variables
+
+### Core Project Settings
+- **gcp_project_number**: GCP project number (numeric ID)
+- **gcp_project**: GCP project ID (string identifier)
+- **gcp_region**: Primary GCP region for resources
+- **gcp_zones**: List of availability zones within the region
+- **project_name**: Project name used for resource naming
+- **project_env**: Environment identifier (dev, staging, prod)
+
+### Application Configuration
+- **apps**: Map of applications to deploy
+  - **name**: Application name
+  - **namespace**: Kubernetes namespace
+  - **chart_version**: Helm chart version
+  - **deploy**: Whether to deploy the application
+
+### Infrastructure Settings
+- **gke_cluster_name**: GKE cluster name (auto-generated from project_name and project_env)
+- **gke_cluster_type**: Cluster type ("standard" or "autopilot")
+
+### Resource Sizing
+- **compute.cpu_nodepool**: CPU node pool machine type
+- **compute.gpu_nodepool**: GPU node pool machine type
+- **compute.db_size**: Cloud SQL instance size
+
+### Additional Settings
+- **domain**: Domain prefix for applications
+- **license_file_path**: Path to Regula license file
 
 ## Deployment Methods
 
@@ -161,8 +191,6 @@ terragrunt apply --all --terragrunt-include-dir infra/gcs
 # 6. Deploy applications
 # For standard cluster:
 terragrunt apply --all --terragrunt-include-dir apps
-# For autopilot cluster:
-terragrunt apply --all --terragrunt-include-dir apps-autopilot
 ```
 
 ### Individual Components
