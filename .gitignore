@@ -1,0 +1,51 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfplan.*
+.terraform.lock.hcl
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+.terraform.lock.hcl
+
+# Terragrunt
+**/.terragrunt-cache/*
+.terragrunt-source-version
+.terragrunt-module-manifest
+.terragrunt-source-manifest
+
+# Variable files (may contain sensitive data)
+*.tfvars
+*.tfvars.json
+!terraform.tfvars.example
+!*.tfvars.example
+
+
+#gcp
+key.json
+# HCL files
+*_override.hcl
+*.auto.hcl
+*.backup.hcl
+.vscode/*
+terraform/environments/*/builds
+
+# regula.license files
+*.license
+
+site/*
+# Lambda builds folder
+terraform/**/builds/*
+
+terraform/environments/*/*/defaults.tfvars
+
+# Site
+dist/
+site/
