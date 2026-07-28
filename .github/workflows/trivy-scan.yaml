@@ -1,0 +1,7 @@
+name: Trivy Scan
+on:
+  pull_request:
+
+jobs:
+  trivy:
+    uses: regulaforensics/reusable-workflows/.github/workflows/trivy-scan.yaml@main

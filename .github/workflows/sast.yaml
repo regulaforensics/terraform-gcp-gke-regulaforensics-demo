@@ -1,0 +1,7 @@
+name: SAST
+on:
+  pull_request:
+
+jobs:
+  sast:
+    uses: regulaforensics/reusable-workflows/.github/workflows/sast.yaml@main
