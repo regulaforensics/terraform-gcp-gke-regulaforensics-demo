@@ -3,5 +3,17 @@ on:
   pull_request:
 
 jobs:
-  trivy:
-    uses: regulaforensics/reusable-workflows/.github/workflows/trivy-scan.yaml@main
+  trivy-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Run Trivy scanner
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: 'fs'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+        env:
+          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2
