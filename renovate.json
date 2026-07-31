@@ -1,0 +1,24 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "enabledManagers": ["github-actions"],
+  "labels": ["dependencies", "github-actions"],
+  "prBodyNotes": ["Ticket link: https://redmine.regulaforensics.com/issues/58096"],
+  "packageRules": [
+    {
+      "description": "Group all GitHub Actions updates (including major) into a single weekly PR",
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions",
+      "schedule": ["before 6am on monday"],
+      "automerge": false
+    },
+    {
+      "description": "Pin non-reusable GitHub Actions to commit SHA digests (regulaforensics/reusable-workflows excluded — private repo, digest cannot be resolved)",
+      "matchManagers": ["github-actions"],
+      "matchDepTypes": ["action"],
+      "matchPackageNames": ["!regulaforensics/reusable-workflows"],
+      "minimumReleaseAge": false,
+      "pinDigests": true
+    }
+  ]
+}
