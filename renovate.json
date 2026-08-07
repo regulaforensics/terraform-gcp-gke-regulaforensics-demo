@@ -17,7 +17,7 @@
       "matchManagers": ["github-actions"],
       "matchDepTypes": ["action"],
       "matchPackageNames": ["!regulaforensics/reusable-workflows"],
-      "minimumReleaseAge": false,
+      "minimumReleaseAge": null,
       "pinDigests": true
     }
   ]
