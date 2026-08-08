@@ -1,0 +1,30 @@
+name: Verify Issue
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  verify_linked_issue:
+    runs-on: ubuntu-latest
+    name: PR has a linked issue.
+    steps:
+      - name: Verify Linked Issue
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const issueUrlPattern = 'https://redmine.regulaforensics.com/';
+            const pr = context.payload.pull_request;
+
+            if (!pr.body) {
+              console.log("No Linked Issue Found!");
+              core.setFailed('No linked issue found in the pull request description.');
+              return;
+            }
+
+            if (!pr.body.includes(issueUrlPattern)) {
+              console.log("No Linked Issue Found!");
+              core.setFailed('No linked issue found in the pull request description.');
+              return;
+            }
+
+            console.log(`Linked issue found matching pattern "${issueUrlPattern}".`);
